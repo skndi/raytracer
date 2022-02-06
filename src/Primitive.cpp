@@ -12,7 +12,6 @@ bool SpherePrim::intersect(const Ray &ray, float tMin, float tMax, Intersection 
 			intersection.p = ray.at(t);
 			intersection.normal = (intersection.p - center) / radius;
 			intersection.material = material;
-			intersection.frontFace = dot(ray.dir, intersection.normal) < 0;
 			return true;
 		}
 	}

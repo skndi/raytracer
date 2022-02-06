@@ -12,6 +12,7 @@ inline bool similar(float a, float b) {
 	return fabs(a - b) < 0.001;
 }
 
+#pragma pack(1)
 struct vec3 {
 	union {
 		float _v[3];
@@ -121,7 +122,7 @@ inline vec3 operator*(const vec3 &v, float t) {
 	return t * v;
 }
 
-inline vec3 operator/(vec3 v, double t) {
+inline vec3 operator/(vec3 v, float t) {
 	return (1 / t) * v;
 }
 
@@ -138,17 +139,6 @@ inline vec3 cross(const vec3 &u, const vec3 &v) {
 }
 
 typedef vec3 Color;
-
-struct Color8Bit {
-	unsigned r, g, b;
-
-	Color8Bit(Color rgb)
-		: r(rgb.r * 255.99f)
-		, g(rgb.g * 255.99f)
-		, b(rgb.b * 255.99f)
-	{}
-};
-
 
 struct Ray {
 	vec3 origin;
@@ -167,15 +157,14 @@ struct Ray {
 };
 
 struct Intersection {
-	float t;
+	float t = -1.f;
 	vec3 p;
 	vec3 normal;
-	Material *material;
-	bool frontFace;
+	Material *material = nullptr;
 };
 
 inline float randFloat() {
-	static std::mt19937 rng(42);
+	thread_local std::mt19937 rng(42);
 	std::uniform_real_distribution<float> dist(0.f, 0.9999f);
 	return dist(rng);
 }
@@ -186,15 +175,4 @@ inline vec3 randomUnitSphere() {
 		p = 2.0f * vec3(randFloat(), randFloat(), randFloat()) - vec3(1);
 	} while (p.lengthSquare() >= 1.f);
 	return p;
-}
-
-inline vec3 reflect(const vec3 &v, const vec3 &normal) {
-	return v - 2.f * dot(v, normal) * normal;
-}
-
-inline vec3 refract(const vec3& uv, const vec3& n, double etai_over_etat) {
-	const float cosTheta = fmin(dot(-uv, n), 1.0f);
-	const vec3 rOutPerp =  etai_over_etat * (uv + cosTheta*n);
-	const vec3 rOutParallel = -sqrt(fabs(1.0 - rOutPerp.lengthSquare())) * n;
-    return rOutPerp + rOutParallel;
 }

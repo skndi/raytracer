@@ -16,9 +16,10 @@ struct PNGImage {
 			uint8_t r, g, b;
 		};
 	};
+#pragma pack(pop)
 
 	static int componentCount() {
-		return sizeof(Pixel::rgba) / sizeof(Pixel::rgba[0]);
+		return int(sizeof(Pixel::rgba) / sizeof(Pixel::rgba[0]));
 	}
 
 	std::vector<Pixel> data;

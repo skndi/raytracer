@@ -24,11 +24,3 @@ struct Metal : Material {
 	{}
 	bool shade(const Ray& ray, const Intersection& data, Color& attenuation, Ray& scatter) override;
 };
-
-struct Dielectric : Material {
-	float ior;
-	Dielectric(float ior)
-		: ior(ior)
-	{}
-	bool shade(const Ray& ray, const Intersection& data, Color& attenuation, Ray& scatter) override;
-};
