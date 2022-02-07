@@ -11,7 +11,7 @@ bool SpherePrim::intersect(const Ray &ray, float tMin, float tMax, Intersection 
 			intersection.t = t;
 			intersection.p = ray.at(t);
 			intersection.normal = (intersection.p - center) / radius;
-			intersection.material = material;
+			intersection.material = material.get();
 			return true;
 		}
 	}
@@ -24,6 +24,24 @@ bool PrimList::intersect(const Ray &ray, float tMin, float tMax, Intersection &i
 	for (int c = 0; c < primitives.size(); c++) {
 		Intersection data;
 		if (primitives[c]->intersect(ray, tMin, tMax, data)) {
+			if (data.t < closest) {
+				intersection = data;
+				closest = data.t;
+				hasHit = true;
+			}
+		}
+	}
+	return hasHit;
+}
+
+bool Instancer::intersect(const Ray& ray, float tMin, float tMax, Intersection& intersection) {
+	float closest = tMax;
+	bool hasHit = false;
+	Ray local = ray;
+	for (int c = 0; c < primitives.size(); c++) {
+		Intersection data;
+		local.origin = (ray.origin - offsets[c]) / scales[c];
+		if (primitives[c]->intersect(local, tMin, tMax, data)) {
 			if (data.t < closest) {
 				intersection = data;
 				closest = data.t;

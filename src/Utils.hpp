@@ -176,3 +176,7 @@ inline vec3 randomUnitSphere() {
 	} while (p.lengthSquare() >= 1.f);
 	return p;
 }
+
+inline vec3 reflect(const vec3 &v, const vec3 &normal) {
+	return v - 2.f * dot(v, normal) * normal;
+}

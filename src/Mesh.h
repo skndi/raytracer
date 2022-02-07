@@ -10,10 +10,10 @@ struct Face {
 struct TriMesh : Primitive {
 	std::vector<vec3> vertices;
 	std::vector<Face> faces;
-	Material *material = nullptr;
+	std::unique_ptr<Material> material;
 
-	TriMesh(const std::string &objFile, Material *material)
-		: material(material) {
+	TriMesh(const std::string &objFile, std::unique_ptr<Material> material)
+		: material(std::move(material)) {
 		loadFromObj(objFile);
 	}
 

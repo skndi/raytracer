@@ -7,6 +7,8 @@ struct Material {
 	virtual bool shade(const Ray &in, const Intersection &data, Color &attenuation, Ray &scatter) = 0;
 };
 
+typedef std::unique_ptr<Material> MaterialPtr;
+
 struct Lambert : Material {
 	Color albedo;
 	Lambert(Color albedo)

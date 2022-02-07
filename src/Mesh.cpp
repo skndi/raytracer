@@ -98,7 +98,7 @@ bool TriMesh::intersectTriangle(const Ray& ray, const Face &t, Intersection &inf
 	info.t = gamma;
 	info.p = ray.origin + ray.dir * gamma;
 	info.normal = normal;
-	info.material = material;
+	info.material = material.get();
 
 	return true;
 }

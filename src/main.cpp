@@ -21,13 +21,16 @@ float degToRad(float deg) {
 
 struct Camera {
 	const vec3 worldUp = {0, 1, 0};
+	const float aspect;
     vec3 origin;
     vec3 llc;
     vec3 left;
     vec3 up;
 
-	Camera(float aspect, float verticalFov, const vec3 &origin, const vec3 &lookAt)
-		: origin(origin) {
+	Camera(float aspect) : aspect(aspect) {}
+
+	void lookAt(float verticalFov, const vec3 &lookFrom, const vec3 &lookAt) {
+		origin = lookFrom;
 		const float theta = degToRad(verticalFov);
 		float half_height = tan(theta / 2);
 		const float half_width = aspect * half_height;
@@ -62,23 +65,48 @@ vec3 color(const Ray &r, PrimList &prims, int depth = 0) {
 	return (1.f - f) * vec3(1.f) + f * vec3(0.5f, 0.7f, 1.f);
 }
 
+void exampleScene(PrimList &scene, Camera &camera) {
+	camera.lookAt(90.f, {1, 5, 1}, {0, 0, 0});
+
+	SharedPrimPtr mesh(new TriMesh(MESH_FOLDER "/cube.obj", MaterialPtr(new Lambert{Color(1, 0, 0)})));
+	Instancer *instancer = new Instancer;
+	instancer->addInstance(mesh, vec3(2, 0, 0));
+	instancer->addInstance(mesh, vec3(0, 0, 2));
+	instancer->addInstance(mesh, vec3(2, 0, 2));
+	scene.primitives.push_back(PrimPtr(instancer));
+
+	const float r = 0.6f;
+	scene.primitives.emplace_back(new SpherePrim{vec3(2, 0, 0), r, MaterialPtr(new Lambert{Color(0.8, 0.3, 0.3)})});
+	scene.primitives.emplace_back(new SpherePrim{vec3(0, 0, 2), r, MaterialPtr(new Lambert{Color(0.8, 0.3, 0.3)})});
+	scene.primitives.emplace_back(new SpherePrim{vec3(0, 0, 0), r, MaterialPtr(new Lambert{Color(0.8, 0.3, 0.3)})});
+}
+
+
+void initCubes(PrimList &scene, Camera &camera) {
+	const int count = 20;
+
+	camera.lookAt(90.f, {count, 20, count}, {0, 0, 0});
+
+	SharedPrimPtr mesh(new TriMesh(MESH_FOLDER "/cube.obj", MaterialPtr(new Lambert{Color(1, 0, 0)})));
+	Instancer *instancer = new Instancer;
+
+	for (int c = -count; c <= count; c++) {
+		for (int r = -count; r <= count; r++) {
+			instancer->addInstance(mesh, vec3(c, 0, r), 0.75f);
+		}
+	}
+	scene.primitives.push_back(PrimPtr(instancer));
+}
 
 int main() {
-	const int width = 1300;
-	const int height = 700;
+	const int width = 800;
+	const int height = 600;
 	const int samplesPerPixel = 4;
 	ImageData data(width, height);
-	Camera cam(float(width) / height, 90.f, {5, 5, 5}, {0, 0, 0});
+	Camera cam(float(width) / height);
 
 	PrimList scene;
-	scene.primitives.push_back(new TriMesh(MESH_FOLDER "/cube.obj", new Lambert{Color(1, 0, 0)}));
-	scene.primitives.push_back(new SpherePrim{vec3(1, 0, 0), 1, new Lambert{Color(0.8, 0.3, 0.3)}});
-	scene.primitives.push_back(new SpherePrim{vec3(0, 0, 0), 1.1f, new Lambert{Color(0.8, 0.3, 0.3)}});
-	scene.primitives.push_back(new SpherePrim{vec3(-1, 0, 0), 1, new Lambert{Color(0.8, 0.3, 0.3)}});
-	//scene.primitives.push_back(new SpherePrim{vec3( R, 0, -1), R, new Lambert{Color{0.8, 0.8, 0.0}}});
-	//scene.primitives.push_back(new SpherePrim{vec3(1, 0, -1), 0.5, new Metal{Color{0.8, 0.6, 0.2}, 0.3}});
-	//scene.primitives.push_back(new SpherePrim{vec3(-1, 0, -1), 0.5, new Dielectric{1.5}});
-	//scene.primitives.push_back(new SpherePrim{vec3(-1, 0, -1), 0.45f, new Dielectric{1.5}});
+	initCubes(scene, cam);
 
 	struct PixelRenderer : Task {
 		PrimList &scene;
@@ -86,11 +114,6 @@ int main() {
 		Camera &cam;
 		PixelRenderer(PrimList &scene, ImageData &data, Camera &cam) : scene(scene), data(data), cam(cam) {}
 		void run(int threadIndex, int threadCount) override {
-			const vec3 llc(-2.f, -1.f, -1.f);
-			const vec3 hor(4.f, 0.f, 0.f);
-			const vec3 vert(0.f, 2.f, 0.f);
-			const vec3 origin(0.f);
-
 			const int total = data.width * data.height;
 			for (int idx = threadIndex; idx < total; idx += threadCount) {
 				const int r = idx / data.width;
@@ -101,7 +124,6 @@ int main() {
 					const float u = float(c + randFloat()) / float(data.width);
 					const float v = float(r + randFloat()) / float(data.height);
 					const Ray &ray = cam.getRay(u, v);
-					//const Ray ray(origin, (llc + u * hor + v * vert).normalized());
 					const vec3 sample = color(ray, scene);
 					avg += sample;
 				}
@@ -112,8 +134,7 @@ int main() {
 		}
 	} pr{scene, data, cam};
 
-	ThreadManager tm(std::thread::hardware_concurrency() / 2);
-	//ThreadManager tm(1);
+	ThreadManager tm(std::thread::hardware_concurrency());
 	tm.start();
 	tm.runThreads(pr);
 	tm.stop();
