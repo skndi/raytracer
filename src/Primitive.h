@@ -32,24 +32,13 @@ struct SpherePrim : Primitive {
 	bool intersect(const Ray &ray, float tMin, float tMax, Intersection &intersection) override;
 };
 
-struct PrimList : Primitive {
-private:
-	std::vector<PrimPtr> primitives;
-public:
-	void addPrimitive(PrimPtr prim) {
-		box.add(prim->box);
-		primitives.push_back(std::move(prim));
-	}
-	bool intersect(const Ray &ray, float tMin, float tMax, Intersection &intersection) override;
-};
-
 struct Instancer : Primitive {
 	private:
 	std::vector<SharedPrimPtr> primitives;
 	std::vector<vec3> offsets;
 	std::vector<float> scales;
 public:
-	void addInstance(SharedPrimPtr prim, const vec3 &offset, float scale = 1.f);
+	void addInstance(SharedPrimPtr prim, const vec3 &offset = vec3(0.f), float scale = 1.f);
 
 	bool intersect(const Ray &ray, float tMin, float tMax, Intersection &intersection) override;
 };

@@ -34,9 +34,17 @@ struct ImageData {
 	int height;
 	std::vector<Color> pixels;
 
-	ImageData(int width, int height)
-		: width(width), height(height), pixels(width * height)
-	{}
+	void init(int w, int h) {
+		width = w;
+		height = h;
+		pixels.resize(width * height);
+	}
+
+	ImageData(int width, int height) {
+		init(width, height);
+	}
+
+	ImageData() = default;
 
 	PNGImage createPNGData() const {
 		PNGImage img(width, height);

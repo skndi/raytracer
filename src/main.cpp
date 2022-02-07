@@ -22,13 +22,11 @@ float degToRad(float deg) {
 
 struct Camera {
 	const vec3 worldUp = {0, 1, 0};
-	const float aspect;
-    vec3 origin;
-    vec3 llc;
-    vec3 left;
-    vec3 up;
-
-	Camera(float aspect) : aspect(aspect) {}
+	float aspect;
+	vec3 origin;
+	vec3 llc;
+	vec3 left;
+	vec3 up;
 
 	void lookAt(float verticalFov, const vec3 &lookFrom, const vec3 &lookAt) {
 		origin = lookFrom;
@@ -44,12 +42,37 @@ struct Camera {
 		up = 2 * half_height * v;
 	}
 
-    Ray getRay(float u, float v) const {
-        return Ray(origin, (llc + u * left + v * up - origin).normalized());
-    }
+	Ray getRay(float u, float v) const {
+		return Ray(origin, (llc + u * left + v * up - origin).normalized());
+	}
 };
 
-vec3 color(const Ray &r, PrimList &prims, int depth = 0) {
+struct Scene {
+	Scene() = default;
+	Scene(const Scene &) = delete;
+	Scene &operator=(const Scene &) = delete;
+
+	int width = 640;
+	int height = 480;
+	int samplesPerPixel = 2;
+	Instancer primitives;
+	Camera camera;
+	ImageData image;
+
+	void initImage(int w, int h, int spp) {
+		image.init(w, h);
+		width = w;
+		height = h;
+		samplesPerPixel = spp;
+		camera.aspect = float(width) / height;
+	}
+
+	void addPrimitive(PrimPtr primitive) {
+		primitives.addInstance(std::move(primitive));
+	}
+};
+
+vec3 color(const Ray &r, Instancer &prims, int depth = 0) {
 	Intersection data;
 	if (prims.intersect(r, 0.001f, FLT_MAX, data)) {
 		Ray scatter;
@@ -66,10 +89,17 @@ vec3 color(const Ray &r, PrimList &prims, int depth = 0) {
 	return (1.f - f) * vec3(1.f) + f * vec3(0.5f, 0.7f, 1.f);
 }
 
-void exampleScene(PrimList &scene, Camera &camera) {
-	camera.lookAt(90.f, {10, 20, 10}, {0, 0, 0});
+void initDragon(Scene &scene) {
+	scene.initImage(640, 480, 1);
+	scene.camera.lookAt(90.f, {20, 30, 20}, {0, 0, 0});
+	scene.addPrimitive(PrimPtr(new TriMesh(MESH_FOLDER "/dragon.obj", MaterialPtr(new Lambert{Color(1, 0, 0)}))));
+}
 
-	SharedPrimPtr mesh(new TriMesh(MESH_FOLDER "/dragon.obj", MaterialPtr(new Lambert{Color(1, 0, 0)})));
+void initExampleScene(Scene &scene) {
+	scene.initImage(800, 600, 4);
+	scene.camera.lookAt(90.f, {-0.1f, 5, -0.1f}, {0, 0, 0});
+
+	SharedPrimPtr mesh(new TriMesh(MESH_FOLDER "/cube.obj", MaterialPtr(new Lambert{Color(1, 0, 0)})));
 	Instancer *instancer = new Instancer;
 	instancer->addInstance(mesh, vec3(2, 0, 0));
 	instancer->addInstance(mesh, vec3(0, 0, 2));
@@ -83,10 +113,11 @@ void exampleScene(PrimList &scene, Camera &camera) {
 }
 
 
-void initCubes(PrimList &scene, Camera &camera) {
+void initCubes(Scene &scene) {
 	const int count = 20;
 
-	camera.lookAt(90.f, {count, 20, count}, {0, 0, 0});
+	scene.initImage(800, 600, 4);
+	scene.camera.lookAt(90.f, {count, 20, count}, {0, 0, 0});
 
 	SharedPrimPtr mesh(new TriMesh(MESH_FOLDER "/cube.obj", MaterialPtr(new Lambert{Color(1, 0, 0)})));
 	Instancer *instancer = new Instancer;
@@ -100,41 +131,36 @@ void initCubes(PrimList &scene, Camera &camera) {
 }
 
 int main() {
-	const int width = 640;
-	const int height = 480;
-	const int samplesPerPixel = 1;
-	ImageData data(width, height);
-	Camera cam(float(width) / height);
-
-	PrimList scene;
+	Scene scene;
+	initExampleScene(scene);
 	printf("Loading scene...\n");
-	exampleScene(scene, cam);
 
 	struct PixelRenderer : Task {
-		PrimList &scene;
-		ImageData &data;
-		Camera &cam;
-		PixelRenderer(PrimList &scene, ImageData &data, Camera &cam) : scene(scene), data(data), cam(cam) {}
+		Scene &scene;
+		PixelRenderer(Scene &scene)
+			: scene(scene)
+		{}
+
 		void run(int threadIndex, int threadCount) override {
-			const int total = data.width * data.height;
+			const int total = scene.width * scene.height;
 			for (int idx = threadIndex; idx < total; idx += threadCount) {
-				const int r = idx / data.width;
-				const int c = idx % data.width;
+				const int r = idx / scene.width;
+				const int c = idx % scene.width;
 
 				Color avg(0);
-				for (int s = 0; s < samplesPerPixel; s++) {
-					const float u = float(c + randFloat()) / float(data.width);
-					const float v = float(r + randFloat()) / float(data.height);
-					const Ray &ray = cam.getRay(u, v);
-					const vec3 sample = color(ray, scene);
+				for (int s = 0; s < scene.samplesPerPixel; s++) {
+					const float u = float(c + randFloat()) / float(scene.width);
+					const float v = float(r + randFloat()) / float(scene.height);
+					const Ray &ray = scene.camera.getRay(u, v);
+					const vec3 sample = color(ray, scene.primitives);
 					avg += sample;
 				}
 
-				avg /= samplesPerPixel;
-				data[c][height - r - 1] = Color(sqrtf(avg.r), sqrtf(avg.g), sqrtf(avg.b));
+				avg /= scene.samplesPerPixel;
+				scene.image[c][scene.height - r - 1] = Color(sqrtf(avg.r), sqrtf(avg.g), sqrtf(avg.b));
 			}
 		}
-	} pr{scene, data, cam};
+	} pr{scene};
 
 	ThreadManager tm(std::thread::hardware_concurrency());
 	tm.start();
@@ -148,8 +174,8 @@ int main() {
 
 	const char *resultImage = "result.png";
 	printf("Saving image to %s...\n", resultImage);
-	const PNGImage &png = data.createPNGData();
-	const int error = stbi_write_png(resultImage, width, height, PNGImage::componentCount(), png.data.data(), sizeof(PNGImage::Pixel) * width);
+	const PNGImage &png = scene.image.createPNGData();
+	const int error = stbi_write_png(resultImage, scene.width, scene.height, PNGImage::componentCount(), png.data.data(), sizeof(PNGImage::Pixel) * scene.width);
 
 	return 0;
 }
