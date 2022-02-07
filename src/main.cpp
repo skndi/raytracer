@@ -3,6 +3,7 @@
 #include <random>
 #include <vector>
 #include <cmath>
+#include <iostream>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "third_party/stb_image_write.h"
@@ -59,6 +60,10 @@ struct Scene {
 	Camera camera;
 	ImageData image;
 
+	void onBeforeRender() {
+		primitives.onBeforeRender();
+	}
+
 	void initImage(int w, int h, int spp) {
 		image.init(w, h);
 		width = w;
@@ -89,17 +94,11 @@ vec3 color(const Ray &r, Instancer &prims, int depth = 0) {
 	return (1.f - f) * vec3(1.f) + f * vec3(0.5f, 0.7f, 1.f);
 }
 
-void initDragon(Scene &scene) {
-	scene.initImage(640, 480, 1);
-	scene.camera.lookAt(90.f, {20, 30, 20}, {0, 0, 0});
-	scene.addPrimitive(PrimPtr(new TriMesh(MESH_FOLDER "/dragon.obj", MaterialPtr(new Lambert{Color(1, 0, 0)}))));
-}
-
 void initExampleScene(Scene &scene) {
 	scene.initImage(800, 600, 4);
 	scene.camera.lookAt(90.f, {-0.1f, 5, -0.1f}, {0, 0, 0});
 
-	SharedPrimPtr mesh(new TriMesh(MESH_FOLDER "/cube.obj", MaterialPtr(new Lambert{Color(1, 0, 0)})));
+	SharedPrimPtr mesh(new TriangleMesh(MESH_FOLDER "/cube.obj", MaterialPtr(new Lambert{Color(1, 0, 0)})));
 	Instancer *instancer = new Instancer;
 	instancer->addInstance(mesh, vec3(2, 0, 0));
 	instancer->addInstance(mesh, vec3(0, 0, 2));
@@ -112,37 +111,66 @@ void initExampleScene(Scene &scene) {
 	scene.addPrimitive(PrimPtr(new SpherePrim{vec3(0, 0, 0), r, MaterialPtr(new Lambert{Color(0.8, 0.3, 0.3)})}));
 }
 
-
-void initCubes(Scene &scene) {
-	const int count = 20;
+void initHeavyDragons(Scene &scene) {
+	const int count = 50;
 
 	scene.initImage(800, 600, 4);
-	scene.camera.lookAt(90.f, {count, 20, count}, {0, 0, 0});
+	scene.camera.lookAt(90.f, {0, 3, count}, {0, 3, 0});
 
-	SharedPrimPtr mesh(new TriMesh(MESH_FOLDER "/cube.obj", MaterialPtr(new Lambert{Color(1, 0, 0)})));
+	SharedPrimPtr mesh(new TriangleMesh(MESH_FOLDER "/dragon.obj", MaterialPtr(new Lambert{Color(0.2, 0.7, 0.1)})));
 	Instancer *instancer = new Instancer;
 
 	for (int c = -count; c <= count; c++) {
 		for (int r = -count; r <= count; r++) {
-			instancer->addInstance(mesh, vec3(c, 0, r), 0.75f);
+			instancer->addInstance(mesh, vec3(c, 0, r), 0.05f);
+			instancer->addInstance(mesh, vec3(c, 6, r), 0.05f);
 		}
 	}
+
 	scene.addPrimitive(PrimPtr(instancer));
+}
+
+void initCubes(Scene &scene) {
+	const int count = 20;
+
+	scene.initImage(800, 600, 2);
+	scene.camera.lookAt(90.f, {0, 2, count}, {0, 0, 0});
+
+	SharedPrimPtr mesh(new TriangleMesh(MESH_FOLDER "/cube.obj", MaterialPtr(new Lambert{Color(1, 0, 0)})));
+	Instancer *instancer = new Instancer;
+
+	for (int c = -count; c <= count; c++) {
+		for (int r = -count; r <= count; r++) {
+			instancer->addInstance(mesh, vec3(c, 0, r), 0.5f);
+		}
+	}
+
+	scene.addPrimitive(PrimPtr(instancer));
+}
+
+void initDragon(Scene &scene) {
+	scene.initImage(800, 600, 4);
+	scene.camera.lookAt(90.f, {8, 10, 7}, {0, 0, 0});
+	scene.addPrimitive(PrimPtr(new TriangleMesh(MESH_FOLDER "/dragon.obj", MaterialPtr(new Lambert{Color(0.2, 0.7, 0.1)}))));
 }
 
 int main() {
 	Scene scene;
-	initExampleScene(scene);
 	printf("Loading scene...\n");
+	initCubes(scene);
+	printf("Preparing scene...\n");
+	scene.onBeforeRender();
 
 	struct PixelRenderer : Task {
 		Scene &scene;
+		std::atomic<int> renderedPixels;
 		PixelRenderer(Scene &scene)
-			: scene(scene)
+			: scene(scene), renderedPixels(0)
 		{}
 
 		void run(int threadIndex, int threadCount) override {
 			const int total = scene.width * scene.height;
+			const int incrementPrint = total / 100;
 			for (int idx = threadIndex; idx < total; idx += threadCount) {
 				const int r = idx / scene.width;
 				const int c = idx % scene.width;
@@ -157,7 +185,11 @@ int main() {
 				}
 
 				avg /= scene.samplesPerPixel;
-				scene.image[c][scene.height - r - 1] = Color(sqrtf(avg.r), sqrtf(avg.g), sqrtf(avg.b));
+				scene.image[c][scene.height - r - 1] = Color(sqrtf(avg.x), sqrtf(avg.y), sqrtf(avg.z));
+				const int completed = renderedPixels.fetch_add(1, std::memory_order_relaxed);
+				if (completed % incrementPrint == 0) {
+					printf("\r%d%% ", int(float(completed) / float(total) * 100));
+				}
 			}
 		}
 	} pr{scene};
@@ -168,7 +200,7 @@ int main() {
 	{
 		Timer timer;
 		tm.runThreads(pr);
-		printf("Render time: %lldms\n", Timer::toMs(timer.elapsedNs()));
+		printf("Render time: %gms\n", Timer::toMs<float>(timer.elapsedNs()));
 	}
 	tm.stop();
 

@@ -12,31 +12,27 @@ inline bool similar(float a, float b) {
 	return fabs(a - b) < 0.001;
 }
 
-#pragma pack(1)
+#pragma pack(push, 1)
 struct vec3 {
 	union {
-		float _v[3];
-		struct {
-			float r, g, b;
-		};
-
 		struct {
 			float x, y, z;
 		};
+		float _v[3];
 	};
 
 	vec3() {}
 
 	vec3(float v)
-		: r(v) , g(v) , b(v)
+		: x(v) , y(v) , z(v)
 	{}
 
 	vec3(float r, float g, float b)
-		: r(r), g(g), b(b)
+		: x(r), y(g), z(b)
 	{}
 
 	float &operator[](int index) {
-		assert(index < 3 && index > 0);
+		assert(index < 3 && index >= 0);
 		return _v[index];
 	}
 
@@ -46,7 +42,7 @@ struct vec3 {
 	}
 
 	vec3 operator-() const {
-		return vec3(-r, -g, -b);
+		return vec3(-x, -y, -z);
 	}
 
 	float length() const {
@@ -54,7 +50,7 @@ struct vec3 {
 	}
 
 	float lengthSquare() const {
-		return r * r + g * g + b * b;
+		return x * x + y * y + z * z;
 	}
 
 	vec3 &operator+=(const vec3 &other) {
@@ -88,9 +84,9 @@ struct vec3 {
 	}
 
 	bool similar(const vec3 &other) const {
-		return ::similar(r, other.r) &&
-			::similar(g, other.g) &&
-			::similar(b, other.b);
+		return ::similar(x, other.x) &&
+			::similar(y, other.y) &&
+			::similar(z, other.z);
 	}
 
 	bool isNormal() const {
@@ -100,7 +96,12 @@ struct vec3 {
 	bool operator>(const vec3 &other) const {
 		return x > other.x && y > other.y && z > other.z;
 	}
+
+	vec3 inverted() const {
+		return vec3{1.f / x, 1.f / y, 1.f / z};
+	}
 };
+#pragma pack(pop)
 
 inline std::ostream &operator<<(std::ostream &out, const vec3 &v) {
 	return out << v._v[0] << ' ' << v._v[1] << ' ' << v._v[2];
@@ -209,7 +210,10 @@ struct BBox {
 	BBox() = default;
 
 	bool isEmpty() const {
-		return min > max;
+		const vec3 size = max - min;
+		return size.x <= 1e-6f ||
+			size.y <= 1e-6f ||
+			size.z <= 1e-6f;
 	}
 
 	void add(const BBox &other) {
@@ -228,10 +232,33 @@ struct BBox {
 		        min.z - 1e-6 <= v.z && v.z <= max.z + 1e-6);
 	}
 
+	void octSplit(BBox parts[8]) const {
+		assert(!isEmpty());
+		const vec3 size = max - min;
+		const vec3 center = min + size / 2;
+
+		parts[0] = BBox{min, center};
+		parts[1] = BBox{center, max};
+
+		parts[2] = BBox{vec3{min.x, center.y, min.z}, vec3{center.x, max.y, center.z}};
+		parts[3] = BBox{vec3{min.x, center.y, center.z}, vec3{center.x, max.y, max.z}};
+		parts[4] = BBox{vec3{min.x, min.y, center.z}, vec3{center.x, center.y, max.z}};
+
+		parts[5] = BBox{vec3{center.x, min.y, min.z}, vec3{max.x, center.y, center.z}};
+		parts[6] = BBox{vec3{center.x, min.y, center.z}, vec3{max.x, center.y, max.z}};
+		parts[7] = BBox{vec3{center.x, center.y, min.z}, vec3{max.x, max.y, center.z}};
+	}
+
+	BBox boxIntersection(const BBox &other) const {
+		assert(!isEmpty());
+		assert(!other.isEmpty());
+		return {
+			::max(min, other.min),
+			::min(max, other.max)
+		};
+	}
+
 	bool testIntersect(const Ray& ray) const {
-#ifdef DISABLE_BBOX_TEST
-		return true;
-#endif
 		assert(!isEmpty());
 		if (inside(ray.origin)) {
 			return true;

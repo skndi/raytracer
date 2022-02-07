@@ -9,7 +9,7 @@ struct ImageData;
 
 
 struct PNGImage {
-#pragma pack(1)
+#pragma pack(push, 1)
 	union Pixel {
 		uint8_t rgba[3];
 		struct {

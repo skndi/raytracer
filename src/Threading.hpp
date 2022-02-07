@@ -65,7 +65,7 @@ struct Timer {
 
 	template <typename T>
 	static T toMs(T ns) {
-		return ns / 1e6;
+		return T(ns / 1e6);
 	}
 
 	int64_t elapsedNs() const {
