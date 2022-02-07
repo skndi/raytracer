@@ -1,10 +1,11 @@
 #define _CRT_SECURE_NO_WARNINGS
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "third_party/stb_image_write.h"
 
 #include <random>
 #include <vector>
 #include <cmath>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "third_party/stb_image_write.h"
 
 #include "threading.hpp"
 #include "Material.h"
@@ -66,19 +67,19 @@ vec3 color(const Ray &r, PrimList &prims, int depth = 0) {
 }
 
 void exampleScene(PrimList &scene, Camera &camera) {
-	camera.lookAt(90.f, {1, 5, 1}, {0, 0, 0});
+	camera.lookAt(90.f, {10, 20, 10}, {0, 0, 0});
 
-	SharedPrimPtr mesh(new TriMesh(MESH_FOLDER "/cube.obj", MaterialPtr(new Lambert{Color(1, 0, 0)})));
+	SharedPrimPtr mesh(new TriMesh(MESH_FOLDER "/dragon.obj", MaterialPtr(new Lambert{Color(1, 0, 0)})));
 	Instancer *instancer = new Instancer;
 	instancer->addInstance(mesh, vec3(2, 0, 0));
 	instancer->addInstance(mesh, vec3(0, 0, 2));
 	instancer->addInstance(mesh, vec3(2, 0, 2));
-	scene.primitives.push_back(PrimPtr(instancer));
+	scene.addPrimitive(PrimPtr(instancer));
 
 	const float r = 0.6f;
-	scene.primitives.emplace_back(new SpherePrim{vec3(2, 0, 0), r, MaterialPtr(new Lambert{Color(0.8, 0.3, 0.3)})});
-	scene.primitives.emplace_back(new SpherePrim{vec3(0, 0, 2), r, MaterialPtr(new Lambert{Color(0.8, 0.3, 0.3)})});
-	scene.primitives.emplace_back(new SpherePrim{vec3(0, 0, 0), r, MaterialPtr(new Lambert{Color(0.8, 0.3, 0.3)})});
+	scene.addPrimitive(PrimPtr(new SpherePrim{vec3(2, 0, 0), r, MaterialPtr(new Lambert{Color(0.8, 0.3, 0.3)})}));
+	scene.addPrimitive(PrimPtr(new SpherePrim{vec3(0, 0, 2), r, MaterialPtr(new Lambert{Color(0.8, 0.3, 0.3)})}));
+	scene.addPrimitive(PrimPtr(new SpherePrim{vec3(0, 0, 0), r, MaterialPtr(new Lambert{Color(0.8, 0.3, 0.3)})}));
 }
 
 
@@ -95,18 +96,19 @@ void initCubes(PrimList &scene, Camera &camera) {
 			instancer->addInstance(mesh, vec3(c, 0, r), 0.75f);
 		}
 	}
-	scene.primitives.push_back(PrimPtr(instancer));
+	scene.addPrimitive(PrimPtr(instancer));
 }
 
 int main() {
-	const int width = 800;
-	const int height = 600;
-	const int samplesPerPixel = 4;
+	const int width = 640;
+	const int height = 480;
+	const int samplesPerPixel = 1;
 	ImageData data(width, height);
 	Camera cam(float(width) / height);
 
 	PrimList scene;
-	initCubes(scene, cam);
+	printf("Loading scene...\n");
+	exampleScene(scene, cam);
 
 	struct PixelRenderer : Task {
 		PrimList &scene;
@@ -136,11 +138,18 @@ int main() {
 
 	ThreadManager tm(std::thread::hardware_concurrency());
 	tm.start();
-	tm.runThreads(pr);
+	printf("Rendering ...\n");
+	{
+		Timer timer;
+		tm.runThreads(pr);
+		printf("Render time: %lldms\n", Timer::toMs(timer.elapsedNs()));
+	}
 	tm.stop();
 
+	const char *resultImage = "result.png";
+	printf("Saving image to %s...\n", resultImage);
 	const PNGImage &png = data.createPNGData();
-	const int error = stbi_write_png("result.png", width, height, PNGImage::componentCount(), png.data.data(), sizeof(PNGImage::Pixel) * width);
+	const int error = stbi_write_png(resultImage, width, height, PNGImage::componentCount(), png.data.data(), sizeof(PNGImage::Pixel) * width);
 
 	return 0;
 }

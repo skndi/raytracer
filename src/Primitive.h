@@ -9,6 +9,7 @@
 struct Intersection;
 
 struct Primitive {
+	BBox box;
 	virtual bool intersect(const Ray &ray, float tMin, float tMax, Intersection &intersection) = 0;
 	virtual ~Primitive() = default;
 };
@@ -22,27 +23,33 @@ struct SpherePrim : Primitive {
 	std::unique_ptr<Material> material;
 
 	SpherePrim(vec3 center, float radius, MaterialPtr material)
-		: center(center), radius(radius), material(std::move(material))
-	{}
+		: center(center), radius(radius), material(std::move(material)) {
+		box.add(center);
+		box.add(center + vec3(radius, radius, radius));
+		box.add(center - vec3(radius, radius, radius));
+	}
 
 	bool intersect(const Ray &ray, float tMin, float tMax, Intersection &intersection) override;
 };
 
 struct PrimList : Primitive {
+private:
 	std::vector<PrimPtr> primitives;
+public:
+	void addPrimitive(PrimPtr prim) {
+		box.add(prim->box);
+		primitives.push_back(std::move(prim));
+	}
 	bool intersect(const Ray &ray, float tMin, float tMax, Intersection &intersection) override;
 };
 
 struct Instancer : Primitive {
+	private:
 	std::vector<SharedPrimPtr> primitives;
 	std::vector<vec3> offsets;
 	std::vector<float> scales;
-
-	void addInstance(SharedPrimPtr prim, const vec3 &offset, float scale = 1.f) {
-		primitives.push_back(std::move(prim));
-		offsets.push_back(offset);
-		scales.push_back(scale);
-	}
+public:
+	void addInstance(SharedPrimPtr prim, const vec3 &offset, float scale = 1.f);
 
 	bool intersect(const Ray &ray, float tMin, float tMax, Intersection &intersection) override;
 };

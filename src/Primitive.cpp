@@ -19,6 +19,9 @@ bool SpherePrim::intersect(const Ray &ray, float tMin, float tMax, Intersection 
 }
 
 bool PrimList::intersect(const Ray &ray, float tMin, float tMax, Intersection &intersection) {
+	if (!box.testIntersect(ray)) {
+		return false;
+	}
 	float closest = tMax;
 	bool hasHit = false;
 	for (int c = 0; c < primitives.size(); c++) {
@@ -34,7 +37,21 @@ bool PrimList::intersect(const Ray &ray, float tMin, float tMax, Intersection &i
 	return hasHit;
 }
 
+void Instancer::addInstance(SharedPrimPtr prim, const vec3& offset, float scale) {
+	BBox primBox;
+	primBox.min = (prim->box.min * scale) + offset;
+	primBox.max = (prim->box.max * scale) + offset;
+	box.add(primBox);
+	primitives.push_back(std::move(prim));
+	offsets.push_back(offset);
+	scales.push_back(scale);
+
+}
+
 bool Instancer::intersect(const Ray& ray, float tMin, float tMax, Intersection& intersection) {
+	if (!box.testIntersect(ray)) {
+		return false;
+	}
 	float closest = tMax;
 	bool hasHit = false;
 	Ray local = ray;

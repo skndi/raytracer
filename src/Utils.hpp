@@ -96,6 +96,10 @@ struct vec3 {
 	bool isNormal() const {
 		return similar(normalized());
 	}
+
+	bool operator>(const vec3 &other) const {
+		return x > other.x && y > other.y && z > other.z;
+	}
 };
 
 inline std::ostream &operator<<(std::ostream &out, const vec3 &v) {
@@ -124,6 +128,22 @@ inline vec3 operator*(const vec3 &v, float t) {
 
 inline vec3 operator/(vec3 v, float t) {
 	return (1 / t) * v;
+}
+
+inline vec3 max(const vec3 &a, const vec3 &b) {
+	return {
+		std::max(a.x, b.x),
+		std::max(a.y, b.y),
+		std::max(a.z, b.z),
+	};
+}
+
+inline vec3 min(const vec3 &a, const vec3 &b) {
+	return {
+		std::min(a.x, b.x),
+		std::min(a.y, b.y),
+		std::min(a.z, b.z),
+	};
 }
 
 inline float dot(const vec3 &u, const vec3 &v) {
@@ -165,7 +185,7 @@ struct Intersection {
 
 inline float randFloat() {
 	thread_local std::mt19937 rng(42);
-	std::uniform_real_distribution<float> dist(0.f, 0.9999f);
+	std::uniform_real_distribution<float> dist(0.f, 1.f);
 	return dist(rng);
 }
 
@@ -180,3 +200,93 @@ inline vec3 randomUnitSphere() {
 inline vec3 reflect(const vec3 &v, const vec3 &normal) {
 	return v - 2.f * dot(v, normal) * normal;
 }
+
+
+struct BBox {
+	vec3 min = {FLT_MAX, FLT_MAX, FLT_MAX};
+	vec3 max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
+
+	BBox() = default;
+
+	bool isEmpty() const {
+		return min > max;
+	}
+
+	void add(const BBox &other) {
+		min = ::min(min, other.min);
+		max = ::max(max, other.max);
+	}
+
+	void add(const vec3 &point) {
+		min = ::min(min, point);
+		max = ::max(max, point);
+	}
+
+	bool inside(const vec3& v) const {
+		return (min.x - 1e-6 <= v.x && v.x <= max.x + 1e-6 &&
+		        min.y - 1e-6 <= v.y && v.y <= max.y + 1e-6 &&
+		        min.z - 1e-6 <= v.z && v.z <= max.z + 1e-6);
+	}
+
+	bool testIntersect(const Ray& ray) const {
+#ifdef DISABLE_BBOX_TEST
+		return true;
+#endif
+		assert(!isEmpty());
+		if (inside(ray.origin)) {
+			return true;
+		}
+
+		for (int dim = 0; dim < 3; dim++) {
+			if ((ray.dir[dim] < 0 && ray.origin[dim] < min[dim]) || (ray.dir[dim] > 0 && ray.origin[dim] > max[dim])) {
+				continue;
+			}
+			if (fabs(ray.dir[dim]) < 1e-9) {
+				continue;
+			}
+			const float mul = 1.f / ray.dir[dim];
+			const int u = (dim == 0) ? 1 : 0;
+			const int v = (dim == 2) ? 1 : 2;
+			float dist = (min[dim] - ray.origin[dim]) * mul;
+			if (dist < 0) {
+				continue; //*
+			}
+			/* (*) this is a good optimization I found out by chance. Consider the following scenario
+			 *
+			 *   ---+  ^  (ray)
+			 *      |   \
+			 * bbox |    \
+			 *      |     \
+			 *      |      * (camera)
+			 * -----+
+			 *
+			 * if we're considering the walls up and down of the bbox (which belong to the same axis),
+			 * the optimization in (*) says that we can skip testing with the "up" wall, if the "down"
+			 * wall is behind us. The rationale for that is, that we can never intersect the "down" wall,
+			 * and even if we have the chance to intersect the "up" wall, we'd be intersection the "right"
+			 * wall first. So we can just skip any further intersection tests for this axis.
+			 * This may seem bogus at first, as it doesn't work if the camera is inside the BBox, but then we would
+			 * have quitted the function because of the inside(ray.start) condition in the first line of the function.
+			 */
+			float x = ray.origin[u] + ray.dir[u] * dist;
+			if (min[u] <= x && x <= max[u]) {
+				const float y = ray.origin[v] + ray.dir[v] * dist;
+				if (min[v] <= y && y <= max[v]) {
+					return true;
+				}
+			}
+			dist = (max[dim] - ray.origin[dim]) * mul;
+			if (dist < 0) {
+				continue;
+			}
+			x = ray.origin[u] + ray.dir[u] * dist;
+			if (min[u] <= x && x <= max[u]) {
+				const float y = ray.origin[v] + ray.dir[v] * dist;
+				if (min[v] <= y && y <= max[v]) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+};

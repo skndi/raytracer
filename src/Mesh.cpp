@@ -16,6 +16,10 @@ bool TriMesh::loadFromObj(const std::string& objPath) {
 	static_assert(sizeof(vec3) == sizeof(tinyobj::real_t) * 3, "next line avoids copy with type alias");
 	vertices.swap(reinterpret_cast<std::vector<vec3>&>(inattrib.vertices));
 
+	for (int c = 0; c < vertices.size(); c++) {
+		box.add(vertices[c]);
+	}
+
 	for (int c = 0; c < inshapes.size(); c++) {
 		int index = 0;
 		bool skipMesh = false;
@@ -105,6 +109,9 @@ bool TriMesh::intersectTriangle(const Ray& ray, const Face &t, Intersection &inf
 
 
 bool TriMesh::intersect(const Ray& ray, float tMin, float tMax, Intersection& intersection) {
+	if (!box.testIntersect(ray)) {
+		return false;
+	}
 	intersection.t = tMax;
 	bool haveRes = false;
 	for (int c = 0; c < faces.size(); c++) {
