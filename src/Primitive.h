@@ -6,7 +6,13 @@
 #include <vector>
 #include <memory>
 
-struct Intersection;
+/// Data for an intersection between a ray and scene primitive
+struct Intersection {
+	float t = -1.f; ///< Position of the intersection along the ray
+	vec3 p; ///< The intersection point
+	vec3 normal; ///< The normal at the intersection
+	Material *material = nullptr; ///< Material of the intersected primitive
+};
 
 /// Interface for anything that can be intersected
 struct Intersectable {

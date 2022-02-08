@@ -179,15 +179,6 @@ struct Ray {
 	}
 };
 
-struct Material;
-/// Data for an intersection between a ray and scene primitive
-struct Intersection {
-	float t = -1.f; ///< Position of the intersection along the ray
-	vec3 p; ///< The intersection point
-	vec3 normal; ///< The normal at the intersection
-	Material *material = nullptr; ///< Material of the intersected primitive
-};
-
 /// @brief Get random float in range [0, 1]
 inline float randFloat() {
 	thread_local std::mt19937 rng(42);

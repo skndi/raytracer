@@ -1,4 +1,5 @@
 #include "Material.h"
+#include "Primitive.h"
 
 bool Lambert::shade(const Ray &ray, const Intersection &data, Color &attenuation, Ray &scatter) {
 	const vec3 target = data.p + data.normal + randomUnitSphere();
