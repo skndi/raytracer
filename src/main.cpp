@@ -211,7 +211,7 @@ int main(int argc, char *argv[]) {
 		sceneManyHeavyMeshes
 	};
 
-	puts("> There are 4 scenes to render");
+	puts("> There are 4 scenes (0,1,2,3) to render");
 	puts("> Pass no arguments to render the example scene (index 0)");
 	puts("> Pass one argument, index of the scene to render or -1 to render all");
 	puts("");
@@ -257,6 +257,7 @@ int main(int argc, char *argv[]) {
 		if (success == 0) {
 			printf("Failed to write image \"%s\"\n", resultImage.c_str());
 		}
+		puts("");
 	}
 
 	printf("Done.");

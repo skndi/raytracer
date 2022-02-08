@@ -70,7 +70,7 @@ void Instancer::onBeforeRender() {
 		for (int c = 0; c < instances.size(); c++) {
 			accelerator->addPrimitive(&instances[c]);
 		}
-		accelerator->build(2, 20);
+		accelerator->build(IntersectionAccelerator::Purpose::Instances);
 	}
 }
 
@@ -91,7 +91,7 @@ bool Instancer::intersect(const Ray& ray, float tMin, float tMax, Intersection& 
 	if (!box.testIntersect(ray)) {
 		return false;
 	}
-	if (accelerator) {
+	if (accelerator && accelerator->isBuilt()) {
 		return accelerator->intersect(ray, tMin, tMax, intersection);
 	}
 	float closest = tMax;

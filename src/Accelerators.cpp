@@ -44,10 +44,11 @@ struct OctTree : IntersectionAccelerator {
 			leafSize = std::max(leafSize, int(n->primitives.size()));
 			return;
 		}
+
 		depth = std::max(depth, currentDepth);
 		BBox childBoxes[8];
 		n->box.octSplit(childBoxes);
-		nodes = leafSize = currentDepth = 0;
+
 		for (int c = 0; c < 8; c++) {
 			Node *& child = n->children[c];
 			child = new Node;
@@ -68,19 +69,26 @@ struct OctTree : IntersectionAccelerator {
 		n->primitives.clear();
 	}
 
-	void build(int maxDepth = -1, int minPrimitives = -1) override {
-		if (maxDepth != -1) {
-			MAX_DEPTH = maxDepth;
+	void build(Purpose purpose) override {
+		const char *treePurpose = "";
+		if (purpose == Purpose::Instances) {
+			MAX_DEPTH = 5;
+			MIN_PRIMITIVES = 4;
+			treePurpose = " instances";
+		} else if (purpose == Purpose::Mesh) {
+			MAX_DEPTH = 35;
+			MIN_PRIMITIVES = 20;
+			treePurpose = " mesh";
 		}
-		if (minPrimitives != -1) {
-			MIN_PRIMITIVES = minPrimitives;
-		}
+
 		if (root) {
 			clear(root);
 			delete root;
 		}
-		printf("Building oct tree with %d primitives... ", int(allPrimitives.size()));
+
+		printf("Building%s oct tree with %d primitives... ", treePurpose, int(allPrimitives.size()));
 		Timer timer;
+		nodes = leafSize = depth = 0;
 		root = new Node();
 		root->primitives.swap(allPrimitives);
 		for (int c = 0; c < root->primitives.size(); c++) {
@@ -90,31 +98,22 @@ struct OctTree : IntersectionAccelerator {
 		printf(" done in %lldms, nodes %d, depth %d, %d leaf size\n", timer.toMs(timer.elapsedNs()), nodes, depth, leafSize);
 	}
 
-	bool intersect(Node *n, const Ray& ray, float tMin, float tMax, Intersection& intersection) {
-		float closest = tMax;
+	bool intersect(Node *n, const Ray& ray, float tMin, float &tMax, Intersection& intersection) {
 		bool hasHit = false;
 
 		if (n->isLeaf()) {
 			for (int c = 0; c < n->primitives.size(); c++) {
-				Intersection data;
-				if (n->primitives[c]->intersect(ray, tMin, tMax, data)) {
-					if (data.t < closest) {
-						intersection = data;
-						closest = data.t;
-						hasHit = true;
-					}
+				if (n->primitives[c]->intersect(ray, tMin, tMax, intersection)) {
+					tMax = intersection.t;
+					hasHit = true;
 				}
 			}
 		} else {
 			for (int c = 0; c < 8; c++) {
 				if (n->children[c]->box.testIntersect(ray)) {
-					Intersection data;
-					if (intersect(n->children[c], ray, tMin, tMax, data)) {
-						if (data.t < closest) {
-							intersection = data;
-							closest = data.t;
-							hasHit = true;
-						}
+					if (intersect(n->children[c], ray, tMin, tMax, intersection)) {
+						tMax = intersection.t;
+						hasHit = true;
 					}
 				}
 			}
@@ -138,20 +137,20 @@ struct OctTree : IntersectionAccelerator {
 
 /// TODO: Implement one/both or any other acceleration structure and change makeDefaultAccelerator to create it
 struct KDTree : IntersectionAccelerator {
-	void addPrimitive(Intersectable *prim) override = 0;
-	void clear() override = 0;
-	void build(int maxDepth = -1, int minPrimitives = -1) override = 0;
-	bool isBuilt() const override = 0;
-	bool intersect(const Ray &ray, float tMin, float tMax, Intersection &intersection) override = 0;
+	void addPrimitive(Intersectable *prim) override {}
+	void clear() override {}
+	void build(Purpose purpose) override {}
+	bool isBuilt() const override { return false; }
+	bool intersect(const Ray &ray, float tMin, float tMax, Intersection &intersection) override { return false; }
 };
 
 
 struct BVHTree : IntersectionAccelerator {
-	void addPrimitive(Intersectable *prim) override = 0;
-	void clear() override = 0;
-	void build(int maxDepth = -1, int minPrimitives = -1) override = 0;
-	bool isBuilt() const override = 0;
-	bool intersect(const Ray &ray, float tMin, float tMax, Intersection &intersection) override = 0;
+	void addPrimitive(Intersectable *prim) override {}
+	void clear() override {}
+	void build(Purpose purpose) override {}
+	bool isBuilt() const override { return false; }
+	bool intersect(const Ray &ray, float tMin, float tMax, Intersection &intersection) override { return false; }
 };
 
 AcceleratorPtr makeDefaultAccelerator() {

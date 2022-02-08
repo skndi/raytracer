@@ -55,6 +55,12 @@ typedef std::shared_ptr<Primitive> SharedPrimPtr;
 
 /// Interface for an acceleration structure for any intersectable primitives
 struct IntersectionAccelerator {
+	enum class Purpose {
+		Generic,
+		Mesh,
+		Instances
+	};
+
 	/// @brief Add the primitive to the accelerated list
 	/// @param prim - non owning pointer
 	virtual void addPrimitive(Intersectable *prim) = 0;
@@ -63,9 +69,8 @@ struct IntersectionAccelerator {
 	virtual void clear() = 0;
 
 	/// @brief Build all the internal data for the accelerator
-	/// @param maxDepth - used to limit depth for tree based accelerators
-	/// @param minPrimitives - used as termination condition for tree based accelerators
-	virtual void build(int maxDepth = -1, int minPrimitives = -1) = 0;
+	///	@param purpose - the purpose of the tree, implementation can use it as hint for internal parameters
+	virtual void build(Purpose purpose = Purpose::Generic) = 0;
 
 	/// @brief Check if the accelerator is built
 	virtual bool isBuilt() const = 0;

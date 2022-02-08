@@ -180,7 +180,7 @@ void TriangleMesh::onBeforeRender() {
 		for (int c = 0; c < faces.size(); c++) {
 			accelerator->addPrimitive(&faces[c]);
 		}
-		accelerator->build(35, 8);
+		accelerator->build(IntersectionAccelerator::Purpose::Mesh);
 	}
 }
 
@@ -236,7 +236,7 @@ bool TriangleMesh::intersect(const Ray& ray, float tMin, float tMax, Intersectio
 	if (!box.testIntersect(ray)) {
 		return false;
 	}
-	if (accelerator) {
+	if (accelerator && accelerator->isBuilt()) {
 		return accelerator->intersect(ray, tMin, tMax, intersection);
 	}
 	bool haveRes = false;
