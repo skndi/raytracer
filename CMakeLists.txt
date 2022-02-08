@@ -13,6 +13,7 @@ set(SOURCES
 
 	src/Primitive.h
 	src/Primitive.cpp
+	src/Accelerators.cpp
 
 	src/Utils.hpp
 	src/Threading.hpp

@@ -173,7 +173,7 @@ void TriangleMesh::onBeforeRender() {
 	}
 
 	if (!accelerator) {
-		accelerator = makeQuadTree();
+		accelerator = makeDefaultAccelerator();
 	}
 
 	if (!accelerator->isBuilt()) {

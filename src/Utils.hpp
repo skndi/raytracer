@@ -3,16 +3,20 @@
 #include <cmath>
 #include <ostream>
 #include <random>
+#include <cassert>
 
-#define assert(test) do { !!(test) ? (void)0 : __debugbreak(); } while(0)
+static const int MAX_RAY_DEPTH = 35;
+const float PI = 3.14159265358979323846;
 
-struct Material;
-
-inline bool similar(float a, float b) {
-	return fabs(a - b) < 0.001;
+inline float degToRad(float deg) {
+	return (deg * PI) / 180.f;
 }
 
-#pragma pack(push, 1)
+inline bool similar(float a, float b) {
+	return fabs(a - b) < 1e-4;
+}
+
+/// Basic vector with 3 floats
 struct vec3 {
 	union {
 		struct {
@@ -101,7 +105,6 @@ struct vec3 {
 		return vec3{1.f / x, 1.f / y, 1.f / z};
 	}
 };
-#pragma pack(pop)
 
 inline std::ostream &operator<<(std::ostream &out, const vec3 &v) {
 	return out << v._v[0] << ' ' << v._v[1] << ' ' << v._v[2];
@@ -159,8 +162,7 @@ inline vec3 cross(const vec3 &u, const vec3 &v) {
 		u._v[0] * v._v[1] - u._v[1] * v._v[0]);
 }
 
-typedef vec3 Color;
-
+/// Ray represented by origin and direction
 struct Ray {
 	vec3 origin;
 	vec3 dir;
@@ -177,13 +179,16 @@ struct Ray {
 	}
 };
 
+struct Material;
+/// Data for an intersection between a ray and scene primitive
 struct Intersection {
-	float t = -1.f;
-	vec3 p;
-	vec3 normal;
-	Material *material = nullptr;
+	float t = -1.f; ///< Position of the intersection along the ray
+	vec3 p; ///< The intersection point
+	vec3 normal; ///< The normal at the intersection
+	Material *material = nullptr; ///< Material of the intersected primitive
 };
 
+/// @brief Get random float in range [0, 1]
 inline float randFloat() {
 	thread_local std::mt19937 rng(42);
 	std::uniform_real_distribution<float> dist(0.f, 1.f);
@@ -198,17 +203,22 @@ inline vec3 randomUnitSphere() {
 	return p;
 }
 
+/// @brief Reflect vector @v from a surface with a normal @normal
+/// @param v - the vector to reflect
+/// @param normal - the surface normal
+/// @return the reflected vector
 inline vec3 reflect(const vec3 &v, const vec3 &normal) {
 	return v - 2.f * dot(v, normal) * normal;
 }
 
-
+/// Axis aligned bounding box, needs only min and max point of the box
 struct BBox {
 	vec3 min = {FLT_MAX, FLT_MAX, FLT_MAX};
 	vec3 max = {-FLT_MAX, -FLT_MAX, -FLT_MAX};
 
 	BBox() = default;
 
+	/// @brief Check if the box is "empty", meaning its size has at lease one negative component
 	bool isEmpty() const {
 		const vec3 size = max - min;
 		return size.x <= 1e-6f ||
@@ -216,22 +226,27 @@ struct BBox {
 			size.z <= 1e-6f;
 	}
 
+	/// @brief Expand the box with another box, this will be union of both
 	void add(const BBox &other) {
 		min = ::min(min, other.min);
 		max = ::max(max, other.max);
 	}
 
+	/// @brief Expand the box with a single point
 	void add(const vec3 &point) {
 		min = ::min(min, point);
 		max = ::max(max, point);
 	}
 
-	bool inside(const vec3& v) const {
-		return (min.x - 1e-6 <= v.x && v.x <= max.x + 1e-6 &&
-		        min.y - 1e-6 <= v.y && v.y <= max.y + 1e-6 &&
-		        min.z - 1e-6 <= v.z && v.z <= max.z + 1e-6);
+	/// @brief Check if given point is inside the box with some tolerance
+	bool inside(const vec3& point) const {
+		return (min.x - 1e-6 <= point.x && point.x <= max.x + 1e-6 &&
+		        min.y - 1e-6 <= point.y && point.y <= max.y + 1e-6 &&
+		        min.z - 1e-6 <= point.z && point.z <= max.z + 1e-6);
 	}
 
+	/// @brief Split the box in 8 equal parts, children are not sorted in any way
+	/// @param parts [out] - where to write the children
 	void octSplit(BBox parts[8]) const {
 		assert(!isEmpty());
 		const vec3 size = max - min;
@@ -249,6 +264,8 @@ struct BBox {
 		parts[7] = BBox{vec3{center.x, center.y, min.z}, vec3{max.x, max.y, center.z}};
 	}
 
+	/// @brief Compute the intersection with another box
+	///	@return empty box if there is no intersection
 	BBox boxIntersection(const BBox &other) const {
 		assert(!isEmpty());
 		assert(!other.isEmpty());
@@ -258,7 +275,9 @@ struct BBox {
 		};
 	}
 
+	/// @brief Check if a ray intersects the box
 	bool testIntersect(const Ray& ray) const {
+		// source: https://github.com/anrieff/quaddamage/blob/master/src/bbox.h
 		assert(!isEmpty());
 		if (inside(ray.origin)) {
 			return true;
