@@ -4,6 +4,7 @@
 #include <ostream>
 #include <random>
 #include <cassert>
+#include <cfloat>
 
 static const int MAX_RAY_DEPTH = 35;
 const float PI = 3.14159265358979323846;
