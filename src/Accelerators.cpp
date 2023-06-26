@@ -1,5 +1,5 @@
 #include "Primitive.h"
-#include "threading.hpp"
+#include "Threading.hpp"
 
 struct OctTree : IntersectionAccelerator {
 	struct Node {
