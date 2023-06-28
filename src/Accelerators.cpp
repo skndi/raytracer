@@ -1,6 +1,6 @@
 #include "Primitive.h"
 #include "Threading.hpp"
-
+#include <cstring>
 struct OctTree : IntersectionAccelerator {
 	struct Node {
 		BBox box;

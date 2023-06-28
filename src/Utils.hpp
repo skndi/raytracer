@@ -51,7 +51,7 @@ struct vec3 {
 	}
 
 	float length() const {
-		return std::sqrtf(lengthSquare());
+		return std::sqrt(lengthSquare());
 	}
 
 	float lengthSquare() const {
