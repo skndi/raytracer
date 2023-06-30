@@ -6,18 +6,18 @@ set(HEADERS
 )
 
 set(SOURCES
-	src/Material.h
+	src/Material.hpp
 	src/Material.cpp
 
 	src/Image.hpp
 
-	src/Primitive.h
+	src/Primitive.hpp
 	src/Primitive.cpp
 	src/Accelerators.cpp
 
 	src/Utils.hpp
 	src/Threading.hpp
-	src/Mesh.h
+	src/Mesh.hpp
 	src/Mesh.cpp
 
 	src/Mesh.cpp
